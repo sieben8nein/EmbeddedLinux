@@ -13,8 +13,11 @@
 #define MQTT_SERVERPORT  1883 
 #define MQTT_USERNAME    "my_user"
 #define MQTT_KEY         "bendevictor"
-#define MQTT_TOPIC       "/count"  
-#define VOLTAGE_TOPIC    "/voltage"
+#define MQTT_TOPIC        "mqtt"
+#define VOLTAGE_TOPIC        "volt"
+#define CO2_TOPIC       "/co2"  
+#define TEMPERATURE_TOPIC    "/temperature"
+#define HUMIDITY_TOPIC    "/humidity"
 
 // wifi
 #include <ESP8266WiFiMulti.h>
@@ -33,12 +36,17 @@ volatile unsigned long count;
 #include "Adafruit_MQTT_Client.h"
 WiFiClient wifi_client;
 Adafruit_MQTT_Client mqtt(&wifi_client, MQTT_SERVER, MQTT_SERVERPORT, MQTT_USERNAME, MQTT_KEY);
-Adafruit_MQTT_Publish count_mqtt_publish = Adafruit_MQTT_Publish(&mqtt, MQTT_USERNAME MQTT_TOPIC);
-Adafruit_MQTT_Publish voltage_mqtt_publish = Adafruit_MQTT_Publish(&mqtt, MQTT_USERNAME VOLTAGE_TOPIC);
+//Adafruit_MQTT_Publish count_mqtt_publish = Adafruit_MQTT_Publish(&mqtt, MQTT_TOPIC);
+//Adafruit_MQTT_Publish voltage_mqtt_publish = Adafruit_MQTT_Publish(&mqtt, VOLTAGE_TOPIC);
 
+// Sensor
+#include <Arduino.h>
+#include <SensirionI2CScd4x.h>
+#include <Wire.h>
+SensirionI2CScd4x scd4x;
 
 // publish
-#define PUBLISH_INTERVAL 15000
+#define PUBLISH_INTERVAL 2000
 unsigned long prev_post_time;
 
 // debug
@@ -52,6 +60,23 @@ ICACHE_RAM_ATTR void count_isr()
     count_prev_time = millis(); 
     count++;
   }
+}
+
+// Used by sensor
+void printUint16Hex(uint16_t value) {
+    Serial.print(value < 4096 ? "0" : "");
+    Serial.print(value < 256 ? "0" : "");
+    Serial.print(value < 16 ? "0" : "");
+    Serial.print(value, HEX);
+}
+
+// Used by sensor
+void printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2) {
+    Serial.print("Serial: 0x");
+    printUint16Hex(serial0);
+    printUint16Hex(serial1);
+    printUint16Hex(serial2);
+    Serial.println();
 }
 
 void debug(const char *s)
@@ -92,6 +117,45 @@ void print_wifi_status()
   Serial.println(" dBm");
 }
 
+void setupSensor(){
+  Wire.begin();
+
+    uint16_t error;
+    char errorMessage[256];
+
+    scd4x.begin(Wire);
+
+    // stop potentially previously started measurement
+    error = scd4x.stopPeriodicMeasurement();
+    if (error) {
+        Serial.print("Error trying to execute stopPeriodicMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    }
+
+    uint16_t serial0;
+    uint16_t serial1;
+    uint16_t serial2;
+    error = scd4x.getSerialNumber(serial0, serial1, serial2);
+    if (error) {
+        Serial.print("Error trying to execute getSerialNumber(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else {
+        printSerialNumber(serial0, serial1, serial2);
+    }
+
+    // Start Measurement
+    error = scd4x.startPeriodicMeasurement();
+    if (error) {
+        Serial.print("Error trying to execute startPeriodicMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    }
+
+    Serial.println("Waiting for first measurement... (5 sec)");
+}
+
 void setup()
 {
   // count
@@ -102,6 +166,9 @@ void setup()
 
   // serial
   Serial.begin(115200);
+  while (!Serial) {
+        delay(100);
+  }
   delay(10);
   debug("Boot");
 
@@ -120,36 +187,20 @@ void setup()
   {
     debug("Unable to connect");
   }
+  setupSensor();
 }
 
-void publish_data()
-{
-  char payload[10];
-  sprintf (payload, "%ld", count);
-  count = 0;
-  Serial.print(millis());
-  Serial.print(" Publishing: ");
-  Serial.println(payload);
-  int voltage_Value = analogRead(A0);
-
-
-  Serial.print(millis());
-  Serial.println(" Connecting...");
+void publish_data(const char* topic, const char* content){
   if((WiFiMulti.run(conn_tout_ms) == WL_CONNECTED))
   {
     print_wifi_status();
-  
+
     mqtt_connect();
+    char charBuf[50];
+    Adafruit_MQTT_Publish publish_topic = Adafruit_MQTT_Publish(&mqtt, topic);
     Serial.println("connect success");
-    if (! count_mqtt_publish.publish(payload))
+    if (! publish_topic.publish(content))
     {
-      debug("MQTT failed");
-    }
-    else
-    {
-      debug("MQTT ok");
-    }
-    if(!voltage_mqtt_publish.publish(voltage_Value)){
       debug("MQTT failed");
     }
     else
@@ -158,12 +209,42 @@ void publish_data()
     }
   }
 }
+
 void loop()
 {
     if (millis() - prev_post_time >= PUBLISH_INTERVAL)
     {
+      
       prev_post_time = millis();
-      publish_data();
+      uint16_t co2;
+      uint16_t error;
+    char errorMessage[256];
+    float temperature;
+    float humidity;
+    error = scd4x.readMeasurement(co2, temperature, humidity);
+    if (error) {
+        Serial.print("Error trying to execute readMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else if (co2 == 0) {
+        Serial.println("Invalid sample detected, skipping.");
+    } else {
+        char co2_char = co2;
+        char temp_char = temperature;
+        char hum_char = humidity;
+        publish_data("co2", String(co2).c_str());
+        publish_data("humidity", String(temperature).c_str());
+        publish_data("temp", String(humidity).c_str());
+        Serial.print("Co2:");
+        Serial.print(co2);
+        Serial.print("\t");
+        Serial.print("Temperature:");
+        Serial.print(temperature);
+        Serial.print("\t");
+        Serial.print("Humidity:");
+        Serial.println(humidity);
+    }
+      publish_data("test", "test");
     }
    
     if (millis() - prev_debug_time >= DEBUG_INTERVAL)
