@@ -18,6 +18,12 @@
 #define CO2_TOPIC       "/co2"  
 #define TEMPERATURE_TOPIC    "/temperature"
 #define HUMIDITY_TOPIC    "/humidity"
+//servo
+#include <Servo.h>
+Servo myservo;  // create servo object to control a servo
+
+//MotorPin
+int motorPin = 2; // for ESP8266
 
 // wifi
 #include <ESP8266WiFiMulti.h>
@@ -36,6 +42,11 @@ volatile unsigned long count;
 #include "Adafruit_MQTT_Client.h"
 WiFiClient wifi_client;
 Adafruit_MQTT_Client mqtt(&wifi_client, MQTT_SERVER, MQTT_SERVERPORT, MQTT_USERNAME, MQTT_KEY);
+
+//subscribes
+const char ONOFF_FEED[] PROGMEM = TEMPERATURE_TOPIC;
+Adafruit_MQTT_Subscribe temp_sub = Adafruit_MQTT_Subscribe(&mqtt, "temp");
+
 //Adafruit_MQTT_Publish count_mqtt_publish = Adafruit_MQTT_Publish(&mqtt, MQTT_TOPIC);
 //Adafruit_MQTT_Publish voltage_mqtt_publish = Adafruit_MQTT_Publish(&mqtt, VOLTAGE_TOPIC);
 
@@ -156,6 +167,15 @@ void setupSensor(){
     Serial.println("Waiting for first measurement... (5 sec)");
 }
 
+void setupServo(){
+  
+   myservo.attach(15);  // attaches the servo on GIO2 to the servo object
+}
+
+void setupMotor(){
+  pinMode(motorPin, OUTPUT);
+}
+
 void setup()
 {
   // count
@@ -188,6 +208,9 @@ void setup()
     debug("Unable to connect");
   }
   setupSensor();
+  setupServo();
+  setupMotor();
+  mqtt.subscribe(&temp_sub);
 }
 
 void publish_data(const char* topic, const char* content){
@@ -210,8 +233,14 @@ void publish_data(const char* topic, const char* content){
   }
 }
 
+
+
 void loop()
 {
+    for (int speed = 0; speed<= 120; speed=speed+10) {
+    analogWrite(motorPin, speed);
+    delay(100);
+    }
     if (millis() - prev_post_time >= PUBLISH_INTERVAL)
     {
       
@@ -257,4 +286,43 @@ void loop()
       //int potValue = analogRead(A0);
       //Serial.println(potValue); 
     }
+    
+    recievedMessage();
+
+    
+}
+
+void recievedMessage(){
+   Adafruit_MQTT_Subscribe *subscription;
+   while ((subscription = mqtt.readSubscription(15000))) {
+      Serial.println("something1");
+    // Check if its the onoff button feed
+    if (subscription == &temp_sub) {
+      int temperature = (int)*temp_sub.lastread;
+      Serial.println("got: ");
+      Serial.println((char *)temp_sub.lastread);
+      if(temperature > 50){ //set the value so it fits
+        Serial.println("temp value was above 20");
+        int pos;
+        for (pos = 0; pos <= 180; pos += 1) { // goes from 0 degrees to 180 degrees
+          // in steps of 1 degree
+          myservo.write(pos);              // tell servo to go to position in variable 'pos'
+          delay(15);                       // waits 15ms for the servo to reach the position
+        }
+        for (pos = 180; pos >= 0; pos -= 1) { // goes from 180 degrees to 0 degrees
+          myservo.write(pos);              // tell servo to go to position in variable 'pos'
+        delay(15);                       // waits 15ms for the servo to reach the position
+      }
+      }
+      
+      
+      /*if (strcmp((char *)onoffbutton.lastread, "ON") == 0) {
+        digitalWrite(LED, LOW); 
+      }
+      if (strcmp((char *)onoffbutton.lastread, "OFF") == 0) {
+        digitalWrite(LED, HIGH); 
+      }*/
+    }
+
+  }
 }
