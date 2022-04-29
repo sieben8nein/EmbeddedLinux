@@ -1,6 +1,6 @@
 from paho.mqtt import client as mqtt_client
 
-broker = 'tcp://localhost'
+broker = 'localhost'
 port = 1883
 topic1 = "temp"
 topic2 = "humidity"
@@ -36,19 +36,17 @@ def connect_mqtt() -> mqtt_client:
     return client
 
 
-def subscribe(client: mqtt_client, topic):
+def subscribe(client: mqtt_client, topic1, topic2, topic3):
     def on_message(client, userdata, msg):
         print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
 
-    client.subscribe(topic)
+    client.subscribe([topic1,topic2,topic3])
     client.on_message = on_message
 
 
 def run():
     client = connect_mqtt()
-    subscribe(client, topic1)
-    subscribe(client, topic2)
-    subscribe(client, topic3)
+    subscribe(client, topic1,topic2,topic3)
     client.loop_forever()
 
 
