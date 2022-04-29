@@ -24,12 +24,12 @@ def connect_mqtt() -> mqtt_client:
     return client
 
 
-def subscribe(client: mqtt_client, topic1):
+def subscribe(client: mqtt_client, topic):
     def on_message(client, userdata, msg):
         print(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
         ruleCheck(msg.payload.decode(), msg.topic, client)
 
-    client.subscribe(topic1)
+    client.subscribe(topic)
     client.on_message = on_message
 
 def publish(client, message):
