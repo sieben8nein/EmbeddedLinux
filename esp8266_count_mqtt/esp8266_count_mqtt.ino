@@ -233,8 +233,8 @@ void loop()
         char temp_char = temperature;
         char hum_char = humidity;
         publish_data("co2", String(co2).c_str());
-        publish_data("humidity", String(temperature).c_str());
-        publish_data("temp", String(humidity).c_str());
+        publish_data("humidity", String(humidity).c_str());
+        publish_data("temp", String(temperature).c_str());
         Serial.print("Co2:");
         Serial.print(co2);
         Serial.print("\t");
