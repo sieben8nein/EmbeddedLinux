@@ -44,8 +44,12 @@ def publish(client,topic, message):
 
 def ruleCheck(value, topic, client):
     if topic == "temp":
-        if float(value) > 25:
-            publish(client, "tempActuator", "open")
+        if (float(value) > 25) and (float(value) <= 30):
+            publish(client, "tempActuator", 100)
+        elif ((float(value) > 30) and (float(value) <= 35)):
+            publish(client, "tempActuator", 175)
+        elif float(value) > 35:
+            publish(client, "tempActuator", 255)
         else:
             publish(client, "tempActuator", "close")
         
