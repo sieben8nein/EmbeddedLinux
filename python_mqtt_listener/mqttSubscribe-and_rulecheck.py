@@ -44,18 +44,18 @@ def publish(client,topic, message):
 
 def ruleCheck(value, topic, client):
     if topic == "temp":
-        if value > 25:
+        if int(value) > 25:
             publish(client, "tempActuator", "open")
         else:
             publish(client, "tempActuator", "close")
         
     elif topic == "humidity":
-        if value > 30:
-            publish(client, "dehumidifyerActuator", "open")
+        if int(value) > 30:
+            publish(client, "dehumidifierActuator", "open")
         else:
-            publish(client, "dehumidifyerActuator", "close")
+            publish(client, "dehumidifierActuator", "close")
     elif topic == "co2":
-        if value > 1200:
+        if int(value) > 1200:
             publish(client, "windowActuator", "open")
         else:
             publish(client, "windowActuator", "close")
