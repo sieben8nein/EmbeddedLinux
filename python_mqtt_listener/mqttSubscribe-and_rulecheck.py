@@ -51,7 +51,7 @@ def ruleCheck(value, topic, client):
         elif float(value) > 35:
             publish(client, "tempActuator", 255)
         else:
-            publish(client, "tempActuator", "close")
+            publish(client, "tempActuator", 0)
         
     elif topic == "humidity":
         if float(value) > 30:
