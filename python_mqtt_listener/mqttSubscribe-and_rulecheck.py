@@ -5,7 +5,6 @@ port = 1883
 topic1 = "temp"
 topic2 = "humidity"
 topic3 = "co2"
-pubTopic = "actuators"
 client_id = 'python-mqtt-rulechecker'
 username = 'my_user'
 password = 'bendevictor'
@@ -32,34 +31,34 @@ def subscribe(client: mqtt_client, topic):
     client.subscribe(topic)
     client.on_message = on_message
 
-def publish(client, message):
+def publish(client,topic, message):
     msg = message
-    result = client.publish(pubTopic, msg)
+    result = client.publish(topic, msg)
     # result: [0, 1]
     status = result[0]
     if status == 0:
-        print(f"Send `{msg}` to topic `{pubTopic}`")
+        print(f"Send `{msg}` to topic `{topic}`")
     else:
-        print(f"Failed to send message to topic {pubTopic}")
+        print(f"Failed to send message to topic {topic}")
     
 
 def ruleCheck(value, topic, client):
     if topic == "temp":
         if value > 25:
-            publish(client, ["fan", "open"])
+            publish(client, "tempActuator", "open")
         else:
-            publish(client, ["fan", "close"])
+            publish(client, "tempActuator", "close")
         
     elif topic == "humidity":
         if value > 30:
-            publish(client, ["dehumidifyer", "open"])
+            publish(client, "dehumidifyerActuator", "open")
         else:
-            publish(client, ["dehumidifyer", "close"])
+            publish(client, "dehumidifyerActuator", "close")
     elif topic == "co2":
         if value > 1200:
-            publish(client, ["window", "open"])
+            publish(client, "windowActuator", "open")
         else:
-            publish(client, ["window", "close"])
+            publish(client, "windowActuator", "close")
     return
 
 def run():
