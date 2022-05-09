@@ -23,7 +23,13 @@
 Servo myservo;  // create servo object to control a servo
 
 //MotorPin
-int motorPin = 12; // for ESP8266
+int motorPin = 15; // for ESP8266
+
+//moisture
+int moisturePin = 5;
+
+//PumpPin
+int pumpPin = 6;
 
 // wifi
 #include <ESP8266WiFiMulti.h>
@@ -118,17 +124,6 @@ void mqtt_connect()
   }
 }
 
-void print_wifi_status()
-{
-  Serial.print (millis());
-  Serial.print(" WiFi connected: ");
-  Serial.print(WiFi.SSID());
-  Serial.print(" ");
-  Serial.print(WiFi.localIP());
-  Serial.print(" RSSI: ");
-  Serial.print(WiFi.RSSI());
-  Serial.println(" dBm");
-}
 
 void setupSensor(){
   Wire.begin();
@@ -178,6 +173,10 @@ void setupMotor(){
   pinMode(motorPin, OUTPUT);
 }
 
+void setupPump(){
+  pinMode(pumpPin, OUTPUT);  
+}
+
 void setup()
 {
   // count
@@ -194,9 +193,22 @@ void setup()
   delay(10);
   debug("Boot");
 
-  //Voltage serial
+  establishWifiConnection();
   
+  setupSensor();
+  setupServo();
+  setupMotor();
+  //setupPump();
+  
+  subscribeToTopics();
+}
 
+void subscribeToTopics(){
+  mqtt.subscribe(&temp_sub);
+  mqtt.subscribe(&co2_sub);
+}
+
+void establishWifiConnection(){
   // wifi
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
@@ -209,11 +221,74 @@ void setup()
   {
     debug("Unable to connect");
   }
-  setupSensor();
-  setupServo();
-  setupMotor();
-  mqtt.subscribe(&temp_sub);
-  mqtt.subscribe(&co2_sub);
+}
+
+void print_wifi_status()
+{
+  Serial.print (millis());
+  Serial.print(" WiFi connected: ");
+  Serial.print(WiFi.SSID());
+  Serial.print(" ");
+  Serial.print(WiFi.localIP());
+  Serial.print(" RSSI: ");
+  Serial.print(WiFi.RSSI());
+  Serial.println(" dBm");
+}
+
+
+void pumpPWMExecute(int output, int duration){
+  Serial.print("output: " + String(output) + " Duration: " + String(duration));
+  analogWrite(pumpPin, output);
+  delay(duration);
+  analogWrite(pumpPin, 0);
+}
+
+void debugHearthBeat(){
+    if (millis() - prev_debug_time >= DEBUG_INTERVAL)
+    {
+      prev_debug_time = millis();
+      Serial.print(millis());
+      Serial.print(" ");
+      Serial.println(count);
+    }
+}
+
+void getSensorValues(){
+  if (millis() - prev_post_time >= PUBLISH_INTERVAL)
+    {
+      prev_post_time = millis();
+      uint16_t co2;
+      uint16_t error;
+      char errorMessage[256];
+      float temperature;
+      float humidity = analogRead(moisturePin);
+      float moisture;
+      error = scd4x.readMeasurement(co2, temperature, humidity);
+    if (error) {
+        Serial.print("Error trying to execute readMeasurement(): ");
+        errorToString(error, errorMessage, 256);
+        Serial.println(errorMessage);
+    } else if (co2 == 0 | temperature == 0 | humidity == 0) {
+        Serial.println("Invalid sample detected, skipping.");
+    } else {
+        char humidity_char = humidity;
+        char co2_char = co2;
+        char temp_char = temperature;
+        char hum_char = humidity;
+        publish_data("humidity", String(humidity).c_str());
+        publish_data("co2", String(co2).c_str());
+        publish_data("humidity", String(humidity).c_str());
+        publish_data("temp", String(temperature).c_str());
+        Serial.print("Co2:");
+        Serial.print(co2);
+        Serial.print("\t");
+        Serial.print("Temperature:");
+        Serial.print(temperature);
+        Serial.print("\t");
+        Serial.print("Humidity:");
+        Serial.println(humidity);
+      }
+    }
 }
 
 void publish_data(const char* topic, const char* content){
@@ -236,64 +311,15 @@ void publish_data(const char* topic, const char* content){
   }
 }
 
-
-
-void loop()
-{
-
-    
-    if (millis() - prev_post_time >= PUBLISH_INTERVAL)
-    {
-      prev_post_time = millis();
-      uint16_t co2;
-      uint16_t error;
-      char errorMessage[256];
-      float temperature;
-      float humidity;
-      error = scd4x.readMeasurement(co2, temperature, humidity);
-    if (error) {
-        Serial.print("Error trying to execute readMeasurement(): ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    } else if (co2 == 0) {
-        Serial.println("Invalid sample detected, skipping.");
-    } else {
-        char co2_char = co2;
-        char temp_char = temperature;
-        char hum_char = humidity;
-        publish_data("co2", String(co2).c_str());
-        publish_data("humidity", String(humidity).c_str());
-        publish_data("temp", String(temperature).c_str());
-        Serial.print("Co2:");
-        Serial.print(co2);
-        Serial.print("\t");
-        Serial.print("Temperature:");
-        Serial.print(temperature);
-        Serial.print("\t");
-        Serial.print("Humidity:");
-        Serial.println(humidity);
-    }
-      publish_data("test", "test");
-    }
-   
-    if (millis() - prev_debug_time >= DEBUG_INTERVAL)
-    {
-      prev_debug_time = millis();
-      Serial.print(millis());
-      Serial.print(" ");
-      Serial.println(count);
-    }
-    
-    recievedMessage();
-
-    
-}
-
 void recievedMessage(){
    Adafruit_MQTT_Subscribe *subscription;
+
+   //Serial.print("inside the recievedMessage");
    while ((subscription = mqtt.readSubscription(15000))) {
     if (subscription == &temp_sub) {
+      Serial.println((char *)temp_sub.lastread);
       int duty_cycle = atoi((char *)temp_sub.lastread);
+      Serial.println(duty_cycle);
       analogWrite(motorPin, duty_cycle);
       
     } else if (subscription == &co2_sub){
@@ -311,4 +337,13 @@ void recievedMessage(){
     }
 
   }
+}
+
+
+void loop()
+{
+    getSensorValues();
+    debugHearthBeat();
+    recievedMessage();
+    //pumpPWMExecute(100, 100);
 }
