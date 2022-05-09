@@ -169,6 +169,8 @@ void setupSensor(){
     Serial.println("Waiting for first measurement... (5 sec)");
 }
 
+
+
 void setupServo(){
   
    myservo.attach(15);  // attaches the servo on GIO2 to the servo object
@@ -193,10 +195,17 @@ void setup()
   }
   delay(10);
   debug("Boot");
-
-  //Voltage serial
   
+  connectToWifi();
+  
+  setupSensor();
+  setupServo();
+  setupMotor();
+  mqtt.subscribe(&temp_sub);
+  mqtt.subscribe(&co2_sub);
+}
 
+void connectToWifi(){
   // wifi
   WiFi.persistent(false);
   WiFi.mode(WIFI_STA);
@@ -209,11 +218,7 @@ void setup()
   {
     debug("Unable to connect");
   }
-  setupSensor();
-  setupServo();
-  setupMotor();
-  mqtt.subscribe(&temp_sub);
-  mqtt.subscribe(&co2_sub);
+  
 }
 
 void publish_data(const char* topic, const char* content){
@@ -240,9 +245,23 @@ void publish_data(const char* topic, const char* content){
 
 void loop()
 {
+    readSensorValues();
+    debugHearthbeat();
+    recievedMessage();
+}
 
-    
-    if (millis() - prev_post_time >= PUBLISH_INTERVAL)
+void debugHearthbeat(){
+  if (millis() - prev_debug_time >= DEBUG_INTERVAL)
+    {
+      prev_debug_time = millis();
+      Serial.print(millis());
+      Serial.print(" ");
+      Serial.println(count);
+    }
+}
+
+void readSensorValues(){
+  if (millis() - prev_post_time >= PUBLISH_INTERVAL)
     {
       prev_post_time = millis();
       uint16_t co2;
@@ -273,20 +292,7 @@ void loop()
         Serial.print("Humidity:");
         Serial.println(humidity);
     }
-      publish_data("test", "test");
-    }
-   
-    if (millis() - prev_debug_time >= DEBUG_INTERVAL)
-    {
-      prev_debug_time = millis();
-      Serial.print(millis());
-      Serial.print(" ");
-      Serial.println(count);
-    }
-    
-    recievedMessage();
-
-    
+   }  
 }
 
 void recievedMessage(){
