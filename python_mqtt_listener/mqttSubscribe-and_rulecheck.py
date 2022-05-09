@@ -5,6 +5,7 @@ port = 1883
 topic1 = "temp"
 topic2 = "humidity"
 topic3 = "co2"
+topic4 = "moisture"
 client_id = 'python-mqtt-rulechecker'
 username = 'my_user'
 password = 'bendevictor'
@@ -58,11 +59,18 @@ def ruleCheck(value, topic, client):
             publish(client, "dehumidifierActuator", "open")
         else:
             publish(client, "dehumidifierActuator", "close")
+
     elif topic == "co2":
         if float(value) > 1200:
             publish(client, "windowActuator", "open")
         else:
             publish(client, "windowActuator", "close")
+
+    elif topic == "moisture":
+        if float(value) < 850:
+            publish(client, "pumpActuator", "open")
+        elif float(value) > 850:
+            publish(client, "pumpActuator", "close")
     return
 
 def run():
@@ -70,6 +78,7 @@ def run():
     subscribe(client, topic1)
     subscribe(client, topic2)
     subscribe(client, topic3)
+    subscribe(client, topic4)
     client.loop_forever()
     
 
