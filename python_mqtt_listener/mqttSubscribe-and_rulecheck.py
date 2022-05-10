@@ -68,9 +68,9 @@ def ruleCheck(value, topic, client):
 
     elif topic == "moisture":
         if float(value) < 850:
-            publish(client, "pumpActuator", "open")
+            publish(client, "pumpActuator", 255)
         elif float(value) > 850:
-            publish(client, "pumpActuator", "close")
+            publish(client, "pumpActuator", 0)
     return
 
 def run():

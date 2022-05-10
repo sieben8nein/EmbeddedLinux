@@ -11,7 +11,9 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 #define pumpPin 4
 #define moisturePin 34
+#define lightPin 36
 #define topicMoisture "moisture"
+#define topicLight "light"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -82,11 +84,17 @@ void loop() {
   float sensorValue = analogRead(moisturePin);
   char result[9];
   client.publish(topicMoisture, dtostrf(sensorValue,6,3,result));
+
+  float lightValue = analogRead(lightPin);
+  Serial.println(lightValue);
+  char result2[9];
+  client.publish(topicLight, dtostrf(lightValue,6,3,result2));
   
   //Serial.print("Temperature: ");
   
   // Convert raw temperature in F to Celsius degrees
-  //Serial.print((temprature_sens_read() - 32) / 1.8);
-  //Serial.println(" C");
+  float internalTemp = (temprature_sens_read() - 32) / 1.8;
+  char result3[9];
+  client.publish("internalTempESP32", dtostrf(internalTemp,6,3,result3));
   delay(5000);
 }
