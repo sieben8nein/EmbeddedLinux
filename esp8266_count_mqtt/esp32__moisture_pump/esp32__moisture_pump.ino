@@ -22,7 +22,6 @@ uint8_t temprature_sens_read();
 }
 #endif
 uint8_t temprature_sens_read();
-int manual = 0;
 void initWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -41,7 +40,6 @@ void reconnect() {
     if (client.connect("ESP32", "my_user", "bendevictor")) {
       Serial.println("connected");
       // Subscribe
-      client.subscribe("manual");
       client.subscribe("pumpActuator");
     } else {
       Serial.print("failed, rc=");
@@ -63,15 +61,8 @@ void callback(char* topic, byte* message, unsigned int length) {
   char* pumpTopic = "pumpActuator";
   if(String(topic) == String(pumpTopic)){
     Serial.print("pump: " + msg.toInt());
-    if(manual == 0){
     pumpPWMExecute(msg.toInt(), 10000);
-    }
   }
-  char* manualTopic = "manual";
-  if(String(topic) == String(manualTopic)){
-    Serial.print("manual: " + msg);
-    manual = msg.toInt();
- }
 }
 void setup() {
   Serial.begin(115200);
