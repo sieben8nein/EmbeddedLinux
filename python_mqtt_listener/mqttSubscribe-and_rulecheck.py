@@ -9,7 +9,7 @@ topic4 = "moisture"
 client_id = 'python-mqtt-rulechecker'
 username = 'my_user'
 password = 'bendevictor'
-
+manual = 0
 def connect_mqtt() -> mqtt_client:
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
@@ -34,7 +34,8 @@ def subscribe(client: mqtt_client, topic):
 
 def publish(client,topic, message):
     msg = message
-    result = client.publish(topic, msg)
+    if manual == 0:
+        result = client.publish(topic, msg)
     # result: [0, 1]
     status = result[0]
     if status == 0:
@@ -44,6 +45,8 @@ def publish(client,topic, message):
     
 
 def ruleCheck(value, topic, client):
+    if topic == "manual":
+        manual = int(value)
     if topic == "temp":
         if (float(value) > 25) and (float(value) <= 30):
             publish(client, "tempActuator", 175)
@@ -79,6 +82,7 @@ def run():
     subscribe(client, topic2)
     subscribe(client, topic3)
     subscribe(client, topic4)
+    subscribe(client, "manual")
     client.loop_forever()
     
 
