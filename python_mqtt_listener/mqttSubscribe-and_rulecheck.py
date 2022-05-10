@@ -61,7 +61,7 @@ def ruleCheck(value, topic, client):
             publish(client, "dehumidifierActuator", "close")
 
     elif topic == "co2":
-        if float(value) > 1200:
+        if float(value) > 1000:
             publish(client, "windowActuator", "open")
         else:
             publish(client, "windowActuator", "close")

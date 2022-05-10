@@ -22,6 +22,7 @@ uint8_t temprature_sens_read();
 }
 #endif
 uint8_t temprature_sens_read();
+int manual = 0;
 void initWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -40,6 +41,7 @@ void reconnect() {
     if (client.connect("ESP32", "my_user", "bendevictor")) {
       Serial.println("connected");
       // Subscribe
+      client.subscribe("manual");
       client.subscribe("pumpActuator");
     } else {
       Serial.print("failed, rc=");
@@ -52,22 +54,25 @@ void reconnect() {
 }
 void pumpPWMExecute(int output, int duration){
   analogWrite(pumpPin, output);
-  delay(duration);
-  analogWrite(pumpPin, 0);
 }
 void callback(char* topic, byte* message, unsigned int length) {
-  Serial.print("Message arrived on topic: ");
-  Serial.print(topic);
   String msg = "";
   for(int i = 0; i< length; i++){
     msg = msg+(char)message[i];
   }
   char* pumpTopic = "pumpActuator";
   if(String(topic) == String(pumpTopic)){
-    Serial.print("pump: " + msg);
+    Serial.print("pump: " + msg.toInt());
+    if(manual == 0){
     pumpPWMExecute(msg.toInt(), 10000);
-  } 
+    }
+  }
+  char* manualTopic = "manual";
+  if(String(topic) == String(manualTopic)){
+    Serial.print("manual: " + msg);
+    manual = msg.toInt();
  }
+}
 void setup() {
   Serial.begin(115200);
   initWiFi();
@@ -80,13 +85,14 @@ void loop() {
   if (!client.connected()) {
     reconnect();
   }
-  client.loop();
+        client.loop();
+
   float sensorValue = analogRead(moisturePin);
   char result[9];
   client.publish(topicMoisture, dtostrf(sensorValue,6,3,result));
 
   float lightValue = analogRead(lightPin);
-  Serial.println(lightValue);
+  //Serial.println(lightValue);
   char result2[9];
   client.publish(topicLight, dtostrf(lightValue,6,3,result2));
   
@@ -96,5 +102,5 @@ void loop() {
   float internalTemp = (temprature_sens_read() - 32) / 1.8;
   char result3[9];
   client.publish("internalTempESP32", dtostrf(internalTemp,6,3,result3));
-  delay(5000);
+  //delay(5000);
 }
