@@ -46,6 +46,7 @@ def publish(client,topic, message):
 
 def ruleCheck(value, topic, client):
     if topic == "manual":
+        global manual 
         manual = int(value)
     if topic == "temp":
         if (float(value) > 25) and (float(value) <= 30):
