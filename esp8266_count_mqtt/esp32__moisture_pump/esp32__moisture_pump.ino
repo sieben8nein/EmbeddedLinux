@@ -14,6 +14,7 @@ PubSubClient client(espClient);
 #define lightPin 36
 #define topicMoisture "moisture"
 #define topicLight "light"
+long int t1 = millis();
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -60,7 +61,7 @@ void callback(char* topic, byte* message, unsigned int length) {
   }
   char* pumpTopic = "pumpActuator";
   if(String(topic) == String(pumpTopic)){
-    Serial.print("pump: " + msg.toInt());
+    Serial.print("pump: " + msg);
     pumpPWMExecute(msg.toInt(), 10000);
   }
 }
@@ -77,8 +78,8 @@ void loop() {
     reconnect();
   }
         client.loop();
-
-  float sensorValue = analogRead(moisturePin);
+  if(millis() >= (t1 + 10000)){
+      float sensorValue = analogRead(moisturePin);
   char result[9];
   client.publish(topicMoisture, dtostrf(sensorValue,6,3,result));
 
@@ -93,5 +94,7 @@ void loop() {
   float internalTemp = (temprature_sens_read() - 32) / 1.8;
   char result3[9];
   client.publish("internalTempESP32", dtostrf(internalTemp,6,3,result3));
+  t1 = millis();
+  }
   //delay(5000);
 }
