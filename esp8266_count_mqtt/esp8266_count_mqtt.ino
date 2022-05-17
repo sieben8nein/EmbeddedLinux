@@ -20,6 +20,8 @@
 #define HUMIDITY_TOPIC    "/humidity"
 //servo
 #include <Servo.h>
+
+
 Servo myservo;  // create servo object to control a servo
 
 //MotorPin
@@ -248,8 +250,13 @@ void loop()
     readSensorValues();
     debugHearthbeat();
     recievedMessage();
+    ESP.deepSleep(30e6);
 }
 
+
+
+
+  
 void debugHearthbeat(){
   if (millis() - prev_debug_time >= DEBUG_INTERVAL)
     {
