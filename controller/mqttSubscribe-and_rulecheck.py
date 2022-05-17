@@ -71,18 +71,14 @@ def ruleCheck(value, topic, client):
     elif topic == "humidity":
         if float(value) > 30:
             scheduledMessages.append(["ESP8266Active", "dehumidifierActuator", "open"])
-            publish(client, "dehumidifierActuator", "open")
         else:
             scheduledMessages.append(["ESP8266Active", "dehumidifierActuator", "close"])
-            publish(client, "dehumidifierActuator", "close")
 
     elif topic == "co2":
         if float(value) > 1000:
             scheduledMessages.append(["ESP8266Active", "windowActuator", "open"])
-            publish(client, "windowActuator", "open")
         else:
             scheduledMessages.append(["ESP8266Active", "windowActuator", "close"])
-            publish(client, "windowActuator", "close")
 
     elif topic == "moisture":
         if float(value) < 850:
