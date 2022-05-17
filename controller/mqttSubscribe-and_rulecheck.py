@@ -2,14 +2,17 @@ from paho.mqtt import client as mqtt_client
 
 broker = 'localhost'
 port = 1883
-topic1 = "temp"
-topic2 = "humidity"
-topic3 = "co2"
-topic4 = "moisture"
+tempTopic = "temp"
+humidityTopic = "humidity"
+co2Topic = "co2"
+moistureTopic = "moisture"
 client_id = 'python-mqtt-rulechecker'
 username = 'my_user'
 password = 'bendevictor'
 manual = 0
+ESP8266Active = False
+ESP32Active = False
+scheduledMessages = []
 def connect_mqtt() -> mqtt_client:
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
@@ -48,26 +51,37 @@ def ruleCheck(value, topic, client):
     if topic == "manual":
         global manual 
         manual = int(value)
+
+    if topic == 'ESP8266':
+        global ESP8266Active 
+        ESP8266Active = bool(value)
+    if topic == 'ESP32':
+        global ESP32Active 
+        ESP32Active = bool(value)
     if topic == "temp":
         if (float(value) > 25) and (float(value) <= 30):
-            publish(client, "tempActuator", 175)
+            scheduledMessages.append(["ESP8266Active", "tempActuator", 175])
         elif ((float(value) > 30) and (float(value) <= 35)):
-            publish(client, "tempActuator", 200)
+            scheduledMessages.append(["ESP8266Active", "tempActuator", 200])
         elif float(value) > 35:
-            publish(client, "tempActuator", 255)
+            scheduledMessages.append(["ESP8266Active", "tempActuator", 255])
         else:
-            publish(client, "tempActuator", 0)
+            scheduledMessages.append(["ESP8266Active", "tempActuator", 0])
         
     elif topic == "humidity":
         if float(value) > 30:
+            scheduledMessages.append(["ESP8266Active", "dehumidifierActuator", "open"])
             publish(client, "dehumidifierActuator", "open")
         else:
+            scheduledMessages.append(["ESP8266Active", "dehumidifierActuator", "close"])
             publish(client, "dehumidifierActuator", "close")
 
     elif topic == "co2":
         if float(value) > 1000:
+            scheduledMessages.append(["ESP8266Active", "windowActuator", "open"])
             publish(client, "windowActuator", "open")
         else:
+            scheduledMessages.append(["ESP8266Active", "windowActuator", "close"])
             publish(client, "windowActuator", "close")
 
     elif topic == "moisture":
@@ -76,13 +90,24 @@ def ruleCheck(value, topic, client):
         elif float(value) > 850:
             publish(client, "pumpActuator", 0)
     return
+def HandleScheduled(client):
+    global scheduledMessages
+    for msg in scheduledMessages:
+        if msg[0] == "ESP8266Active":
+            if ESP8266Active:
+                publish(client, msg[1], msg[2])
+                scheduledMessages.remove(msg)
+        if msg[0] == "ESP32Active":
+            if ESP32Active:
+                publish(client, msg[1], msg[2])
+                scheduledMessages.remove(msg)
 
 def run():
     client = connect_mqtt()
-    subscribe(client, topic1)
-    subscribe(client, topic2)
-    subscribe(client, topic3)
-    subscribe(client, topic4)
+    subscribe(client, tempTopic)
+    subscribe(client, humidityTopic)
+    subscribe(client, co2Topic)
+    subscribe(client, moistureTopic)
     subscribe(client, "manual")
     client.loop_forever()
     
