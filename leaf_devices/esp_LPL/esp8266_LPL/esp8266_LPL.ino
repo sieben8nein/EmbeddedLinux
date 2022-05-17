@@ -39,6 +39,8 @@ const uint32_t conn_tout_ms = 5000;
 volatile unsigned long count_prev_time;
 volatile unsigned long count;
 
+
+
 // mqtt
 #include "Adafruit_MQTT.h"
 #include "Adafruit_MQTT_Client.h"
@@ -64,6 +66,10 @@ SensirionI2CScd4x scd4x;
 #define PUBLISH_INTERVAL 2000
 unsigned long prev_post_time;
 
+// publish
+#define SLEEP_INTERVAL 15000
+unsigned long prev_sleep_time;
+
 // debug
 #define DEBUG_INTERVAL 2000
 unsigned long prev_debug_time;
@@ -77,22 +83,8 @@ ICACHE_RAM_ATTR void count_isr()
   }
 }
 
-// Used by sensor
-void printUint16Hex(uint16_t value) {
-    Serial.print(value < 4096 ? "0" : "");
-    Serial.print(value < 256 ? "0" : "");
-    Serial.print(value < 16 ? "0" : "");
-    Serial.print(value, HEX);
-}
 
-// Used by sensor
-void printSerialNumber(uint16_t serial0, uint16_t serial1, uint16_t serial2) {
-    Serial.print("Serial: 0x");
-    printUint16Hex(serial0);
-    printUint16Hex(serial1);
-    printUint16Hex(serial2);
-    Serial.println();
-}
+
 
 void debug(const char *s)
 {
@@ -132,47 +124,6 @@ void print_wifi_status()
   Serial.println(" dBm");
 }
 
-void setupSensor(){
-  Wire.begin();
-
-    uint16_t error;
-    char errorMessage[256];
-
-    scd4x.begin(Wire);
-
-    // stop potentially previously started measurement
-    error = scd4x.stopPeriodicMeasurement();
-    if (error) {
-        Serial.print("Error trying to execute stopPeriodicMeasurement(): ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    }
-
-    uint16_t serial0;
-    uint16_t serial1;
-    uint16_t serial2;
-    error = scd4x.getSerialNumber(serial0, serial1, serial2);
-    if (error) {
-        Serial.print("Error trying to execute getSerialNumber(): ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    } else {
-        printSerialNumber(serial0, serial1, serial2);
-    }
-
-    // Start Measurement
-    error = scd4x.startPeriodicMeasurement();
-    if (error) {
-        Serial.print("Error trying to execute startPeriodicMeasurement(): ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    }
-
-    Serial.println("Waiting for first measurement... (5 sec)");
-}
-
-
-
 void setupServo(){
   
    myservo.attach(15);  // attaches the servo on GIO2 to the servo object
@@ -184,6 +135,8 @@ void setupMotor(){
 
 void setup()
 {
+  prev_sleep_time = millis();
+
   // count
   count_prev_time = millis();
   count = 0;
@@ -200,7 +153,6 @@ void setup()
   
   connectToWifi();
   
-  setupSensor();
   setupServo();
   setupMotor();
   mqtt.subscribe(&temp_sub);
@@ -247,15 +199,22 @@ void publish_data(const char* topic, const char* content){
 
 void loop()
 {
-    readSensorValues();
     debugHearthbeat();
     recievedMessage();
-    ESP.deepSleep(30e6);
+    Serial.println("Active");
+    
+
+    if (millis() - prev_sleep_time >= SLEEP_INTERVAL){
+      prev_sleep_time = millis();
+      analogWrite(motorPin, 0);
+      Serial.println("sleepy sleepy ESP ZZZzzzz");
+      publish_data("ESP8266", "Offline");
+      delay(2000);
+      ESP.deepSleep(30000000);
+    }
+    publish_data("ESP8266", "Active");
+    delay(1000);
 }
-
-
-
-
   
 void debugHearthbeat(){
   if (millis() - prev_debug_time >= DEBUG_INTERVAL)
@@ -265,41 +224,6 @@ void debugHearthbeat(){
       Serial.print(" ");
       Serial.println(count);
     }
-}
-
-void readSensorValues(){
-  if (millis() - prev_post_time >= PUBLISH_INTERVAL)
-    {
-      prev_post_time = millis();
-      uint16_t co2;
-      uint16_t error;
-      char errorMessage[256];
-      float temperature;
-      float humidity;
-      error = scd4x.readMeasurement(co2, temperature, humidity);
-    if (error) {
-        Serial.print("Error trying to execute readMeasurement(): ");
-        errorToString(error, errorMessage, 256);
-        Serial.println(errorMessage);
-    } else if (co2 == 0) {
-        Serial.println("Invalid sample detected, skipping.");
-    } else {
-        char co2_char = co2;
-        char temp_char = temperature;
-        char hum_char = humidity;
-        publish_data("co2", String(co2).c_str());
-        publish_data("humidity", String(humidity).c_str());
-        publish_data("temp", String(temperature).c_str());
-        Serial.print("Co2:");
-        Serial.print(co2);
-        Serial.print("\t");
-        Serial.print("Temperature:");
-        Serial.print(temperature);
-        Serial.print("\t");
-        Serial.print("Humidity:");
-        Serial.println(humidity);
-    }
-   }  
 }
 
 void recievedMessage(){

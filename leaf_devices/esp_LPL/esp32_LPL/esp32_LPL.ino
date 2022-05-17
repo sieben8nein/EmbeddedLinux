@@ -11,16 +11,11 @@ unsigned long prev_post_time;
 // network credentials (STATION)
 const char* ssid = "LEO1_TEAM_06";
 const char* password = "embeddedlinux";
-
+boolean ActuatorActive = "false";
 //MQTT
 const char* mqtt_server =  "192.168.10.1";
 WiFiClient espClient;
 PubSubClient client(espClient);
-#define pumpPin 4
-#define moisturePin 34
-#define lightPin 36
-#define topicMoisture "moisture"
-#define topicLight "light"
 #define topicCo2 "co2LPL"
 #define topicHumidity "humidityLPL"
 #define topicTemp "tempLPL"
@@ -64,19 +59,13 @@ void reconnect() {
     }
   }
 }
-void pumpPWMExecute(int output, int duration){
-  analogWrite(pumpPin, output);
-}
+
 void callback(char* topic, byte* message, unsigned int length) {
   String msg = "";
   for(int i = 0; i< length; i++){
     msg = msg+(char)message[i];
   }
   char* pumpTopic = "pumpActuator";
-
-  if(String(topic) == String(motorTopic){
-    Serial.print("pump: " + msg);
-  }
 }
 void setup() {
   Serial.begin(115200);
@@ -141,36 +130,18 @@ void printUint16Hex(uint16_t value) {
 }
 
 void loop() {
-  readSensorValues();
+  
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
-  if(millis() >= (t1 + 10000)){
-      float sensorValue = analogRead(moisturePin);
-  char result[9];
-  client.publish(topicMoisture, dtostrf(sensorValue,6,3,result));
   
-  float lightValue = analogRead(lightPin);
-  //Serial.println(lightValue);
-  char result2[9];
-  client.publish(topicLight, dtostrf(lightValue,6,3,result2));
-  
-  //Serial.print("Temperature: ");
-  
-  // Convert raw temperature in F to Celsius degrees
-  float internalTemp = (temprature_sens_read() - 32) / 1.8;
-  char result3[9];
-  client.publish("internalTempESP32", dtostrf(internalTemp,6,3,result3));
-  t1 = millis();
-  }
-  //delay(5000);
+  readSensorValues();
 }
 
 
 void readSensorValues(){
-  if (millis() - prev_post_time >= PUBLISH_INTERVAL)
-    {
+  if (millis() - prev_post_time >= PUBLISH_INTERVAL){
       prev_post_time = millis();
       uint16_t co2;
       uint16_t error;
@@ -191,9 +162,6 @@ void readSensorValues(){
         client.publish(topicCo2, String(co2).c_str());
         client.publish(topicHumidity, String(humidity).c_str());
         client.publish(topicTemp, String(temperature).c_str());
-        //publish_data("co2", String(co2).c_str());
-        //publish_data("humidity", String(humidity).c_str());
-        //publish_data("temp", String(temperature).c_str());
         Serial.print("Co2:");
         Serial.print(co2);
         Serial.print("\t");
@@ -203,5 +171,7 @@ void readSensorValues(){
         Serial.print("Humidity:");
         Serial.println(humidity);
     }
-   }  
+    
+  }
+  
 }
