@@ -1,0 +1,77 @@
+<button type="button" onclick="buttonPressed('pumpActuator', '200')">Start Pump</button>
+<button type="button" onclick="buttonPressed('pumpActuator', '0')">Stop Pump</button>
+<button type="button" onclick="buttonPressed('windowActuator', 'open')">Open Window</button>
+<button type="button" onclick="buttonPressed('windowActuator', 'close')">Close Window</button>
+<button type="button" onclick="buttonPressed('manual', '1')">EnableManual</button>
+<button type="button" onclick="buttonPressed('manual', '0')">DisableManual</button>
+<br><br/>
+<b>CHANGE FAN SPEED</b>
+<div class="slidecontainer">
+  <input type="range" min="1" max="100" value="50" class="slider" id="myRange">
+</div>
+<div id="demo"></div>
+<div id="temp"></div>
+<div id="co2"></div>
+<div id="humidity"></div>
+<div id="windowActuator"></div>
+<div id="dehumidifierActuator"></div>
+<div id="tempActuator"></div>
+<div id="light"></div>
+<div id="moisture"></div>
+<div id="manual"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  var socket = io();
+  var slider = document.getElementById("myRange");
+  var output = document.getElementById("demo");
+  var lastSentValue = 0
+  output.innerHTML = slider.value; // Display the default slider value
+
+  // Update the current slider value (each time you drag the slider handle)
+  slider.oninput = function() {
+    var newValue = (this.value*254)/100
+    if(Math.abs(newValue- lastSentValue) > 20){
+      lastSentValue = newValue
+      output.textContent = "The current fan speed: " + newValue;
+      //socket.emit("fanspeed", this.value)
+      buttonPressed("tempActuator", newValue.toString())
+    }
+    
+  } 
+  var temp = document.getElementById('temp');
+  var co2 = document.getElementById('co2');
+  var humidity = document.getElementById('humidity');
+  var windowActuator = document.getElementById('windowActuator');
+  var dehumidifierActuator = document.getElementById('dehumidifierActuator');
+  var tempActuator = document.getElementById('tempActuator');
+  var light = document.getElementById('light');
+  var moisture = document.getElementById('moisture');
+  var manual = document.getElementById('manual');
+  socket.on('temp', (msg) => temp.textContent = "Current Temperature: " + msg + ", received: " + getDate());
+  socket.on('co2', (msg) => co2.textContent = "Current CO2: " + msg+ ", received: " + getDate());
+  socket.on('humidity', (msg) => humidity.textContent = "Current Humidity: " + msg+ ", received: " + getDate());
+  socket.on('windowActuator', (msg) => windowActuator.textContent = "windowActuator is " + msg+ ", received: " + getDate());
+  socket.on('dehumidifierActuator', (msg) => dehumidifierActuator.textContent = "DehumidifierActuator is " + msg+ ", received: " +getDate());
+  socket.on('tempActuator', (msg) => tempActuator.textContent = "Fan is " + msg+ ", received: " + getDate());
+  socket.on('light', (msg) => light.textContent = "Current Light:" + msg+ ", received: " + getDate());
+  socket.on('moisture', (msg) => moisture.textContent = "Current Moisture:" + msg+ ", received: " + getDate());
+  socket.on('manual', (msg) => manual.textContent = "Manual:" + msg+ ", received: " + getDate());
+  function buttonPressed(id, msg){
+     let data = {topic: id, message: msg}
+      socket.emit("publish", JSON.stringify(data))
+  }
+
+  function getDate(){
+    const currentDate = new Date();
+    const currenthour = currentDate.getHours()
+    const currentminutes = currentDate.getMinutes()
+    const currentseconds = currentDate.getSeconds()
+    const currentms = currentDate.getMilliseconds()
+const currentDayOfMonth = currentDate.getDate();
+const currentMonth = currentDate.getMonth(); // Be careful! January is 0, not 1
+const currentYear = currentDate.getFullYear();
+
+const dateString = currenthour + ":"+currentminutes + ":"+currentseconds + ":"+currentms + "   "+currentDayOfMonth + "-" + (currentMonth + 1) + "-" + currentYear;
+  return dateString
+  }
+</script>
